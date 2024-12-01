@@ -7,21 +7,21 @@ from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
+from plyer import notification
 from trio import current_time
 from kivy.clock import Clock
 from kivy.core.audio import SoundLoader
-from datetime import datetime
+from datetime import datetime, time
+from threading import Timer
 
 # Alarm listesi
 alarms = []
-
 
 class Alarm:
     def __init__(self, id, time, label):
         self.id = id
         self.time = time
         self.label = label
-
 
 class MainLayout(BoxLayout):
     def __init__(self, **kwargs):
@@ -30,8 +30,8 @@ class MainLayout(BoxLayout):
         self.padding = 20
         self.spacing = 10
 
-        #ses dosyası ykelem
-
+        #ses dosyası yükleme
+        self.alarm_sound=None#alarm sesi referasnı
         self.alarm_sound=SoundLoader.load(r'C:\Users\yildi\Downloads\Kalbim-Yaralı-Fon-Müziği-♬♫♪-_mp3cut.net_.mp3')
         Clock.schedule_interval(self.check_alarm,1)
 
@@ -62,14 +62,15 @@ class MainLayout(BoxLayout):
         # Alarm ekleme popup'ı
         popup_layout = BoxLayout(orientation="vertical", spacing=10)
         time_input = TextInput(hint_text="Alarm Zamanı (HH:MM)", size_hint=(1, 0.2))
-        if isinstance(time_input,int):
-            print(f"istenilen formatta")
-        else:
-            print("istenilen formatta değil sadece rakamları kullanbilirsiniz")
         label_input = TextInput(hint_text="Alarm Etiketi", size_hint=(1, 0.2))
+
 
         add_button = Button(text="Ekle", size_hint=(1, 0.2))
         popup_layout.add_widget(time_input)
+        if time_input==int:
+            print("istenilen formatta yazıldı")
+        else:
+            print("istenilen formatta değil")
         popup_layout.add_widget(label_input)
         popup_layout.add_widget(add_button)
 
@@ -117,13 +118,28 @@ class MainLayout(BoxLayout):
 
                 # Alarmları ekrana ekle
                 self.alarms_layout.add_widget(alarm_layout)
+    def play_alarm_sound(self):
+        if self.alarm_sound is None:
+            self.alarm_sound=SoundLoader.load(r'C:\Users\yildi\Downloads\Kalbim-Yaralı-Fon-Müziği-♬♫♪-_mp3cut.net_.mp3')
+            if self.alarm_sound:
+                self.alarm_sound.play()
+                #ses zaten çalııyorsa yeniden başlatma
+            else:
+                self.alarm_sound.seek(0)#sesi boşa al
+                self.alarm_sound.play()
+
+    def stop_alarm_sound(self):
+        if self.alarm_sound:
+            self.alarm_sound.stop()
+            self.alarm_sound=None
 
     def delete_alarm(self, alarm_id):
         # Alarmı silme
         global alarms
         alarms = [alarm for alarm in alarms if alarm.id != alarm_id]
         print(f"Alarm silindi: ID {alarm_id}")
-        self.show_alarms(None)  # Silme işleminden sonra alarmları tekrar göster
+        self.show_alarms(None)  # Silme işleminden sonra alarmları tekrar gösterme
+        self.stop_alarm_sound()
 
     def update_alarm_popup(self,alarm):
         popup_layout=BoxLayout(orientation="vertical",spacing=10)
@@ -151,24 +167,25 @@ class MainLayout(BoxLayout):
         else:
             print("Lütfen geçerli bir zaman ve etiket girin.")
 
+    from datetime import datetime
+
     def check_alarm(self, dt):
-        current_time = datetime.now().strftime("%H:%M")
+        current_time = datetime.now().strftime("%H:%M")  # Mevcut zamanı al
 
-        for alarm in alarms:
-            if alarm.time == current_time:
-                print(f"alarm çalıyor: {alarm.time}-{alarm.label}")
-                self.play_alarm_sound()
-                # çalınan alarm listeden çıkrıldı
+        for alarm in alarms:  # Tüm alarmları kontrol et
+            if alarm.time == current_time:  # Eğer alarm saati ile mevcut saat eşleşiyorsa
+                print(f"alarm çalıyor: {alarm.time} - {alarm.label}")  # Alarm bilgisini yazdır
+                self.play_alarm_sound()  # Alarm sesini çal
 
+                # Alarm çaldıktan sonra alarmlardan çıkarılabilir
+                alarms.remove(alarm)  # Alarm listeden çıkar
 
-
-#alarm ses çalma
+    #alarm ses çalma
     def play_alarm_sound(self):
         if self.alarm_sound:
             self.alarm_sound.play()
         else:
             print("Ses dosyası yüklenemedi.")
-
 
 
 class AlarmApp(App):
